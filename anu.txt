@@ -1,0 +1,71 @@
+// ========================================== 
+// KODE ARDUINO RECEIVER - PERCOBAAN 3 (PARALEL) 
+// ========================================== 
+ 
+// Array pin untuk menerima 4 jalur data 
+const int pinData[4] = {4, 5, 6, 7}; 
+ 
+// Pin 2 digunakan karena ini adalah pin khusus Interupsi 0 (INT0) 
+const int pinInterrupt = 2; 
+ 
+// Variabel penampung data menggunakan prefix 'volatile'.  
+// WAJIB digunakan pada variabel yang diubah di dalam fungsi Interrupt (ISR) 
+// agar tidak dihapus oleh optimasi memori kompiler. 
+volatile byte dataMasuk = 0; 
+volatile bool statusDataBaru = false; 
+ 
+void setup() { 
+  // Mengaktifkan Hardware Serial untuk memantau hasil di PC 
+  Serial.begin(9600); 
+   
+  // Inisialisasi pin Data sebagai INPUT untuk membaca tegangan dari Sender 
+  for (int i = 0; i < 4; i++) { 
+    pinMode(pinData[i], INPUT); 
+  } 
+   
+  // Pin interrupt sebagai INPUT 
+  pinMode(pinInterrupt, INPUT); 
+   
+  // Mendaftarkan fungsi Interupsi Eksternal. 
+  // digitalPinToInterrupt(pinInterrupt) akan memetakan Pin 2 ke vector INT0. 
+  // bacaDataParalel adalah nama fungsi yang akan dipanggil secara paksa. 
+  // RISING berarti interupsi terpicu saat tegangan Strobe berubah dari LOW ke HIGH. 
+  attachInterrupt(digitalPinToInterrupt(pinInterrupt), bacaDataParalel, RISING); 
+   
+  Serial.println("Sistem Receiver Paralel Siaga..."); 
+} 
+ 
+void loop() { 
+  // CPU utama hanya beristirahat (atau mengerjakan tugas lain) 
+  // Ia hanya akan mengeksekusi blok ini jika bendera statusDataBaru bernilai true 
+  if (statusDataBaru == true) { 
+     
+    Serial.print("Data Paralel Diterima (Desimal): "); 
+    Serial.println(dataMasuk); 
+     
+    // Turunkan kembali bendera status agar siap menerima data berikutnya 
+    statusDataBaru = false; 
+  } 
+} 
+ 
+// --------------------------------------------------------- 
+// FUNGSI INTERRUPT SERVICE ROUTINE (ISR) 
+// Fungsi ini dijalankan secara paksa dan instan oleh hardware  
+// setiap kali Pin 2 menerima pulsa HIGH dari Sender. 
+// --------------------------------------------------------- 
+void bacaDataParalel() { 
+  // Reset wadah data menjadi 0 (0000 dalam biner) 
+  dataMasuk = 0; 
+   
+  // Membaca status keempat pin secara bersamaan (hanya butuh waktu hitungan mikrosekon) 
+  for (int i = 0; i < 4; i++) { 
+    // Jika pin bernilai HIGH (5V) 
+    if (digitalRead(pinData[i]) == HIGH) { 
+      // Sisipkan angka 1 ke posisi bit ke-i menggunakan bitWrite() 
+      bitWrite(dataMasuk, i, 1); 
+    } 
+  } 
+   
+  // Naikkan bendera status untuk memberitahu fungsi loop() bahwa ada data utuh 
+  statusDataBaru = true; 
+}
